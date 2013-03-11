@@ -20,17 +20,8 @@ module Backup
       # Path to riak-admin utility (optional)
       attr_accessor :riak_admin_utility
 
-      ##
-      # Username for the riak instance (optional)
-      attr_accessor :user
-
-      ##
-      # Group for the riak instance (optional)
-      attr_accessor :group
-
       attr_deprecate :utility_path, :version => '3.0.21',
-          :message => 'Use Riak#riak_admin_utility instead.',
-          :action => lambda {|klass, val| klass.riak_admin_utility = val }
+          :replacement => :riak_admin_utility
 
       ##
       # Creates a new instance of the Riak adapter object
@@ -40,27 +31,22 @@ module Backup
         instance_eval(&block) if block_given?
 
         @riak_admin_utility ||= utility('riak-admin')
-        @user               ||= 'riak'
-        @group              ||= 'riak'
       end
 
       ##
-      # Performs the `riak-admin` command which creates a single dump file in
-      # @dump_path based on the `name` and `node`.
-      #
-      # `riak-admin` will append the `node` to the filename.
-      # i.e. <tmp_path>/<trigger>/databases/Riak/<name>-<node>
+      # Performs the riak-admin command and outputs the
+      # data to the specified path based on the 'trigger'
       def perform!
         super
-        # ensure riak-admin user has permissions to write backup file
-        FileUtils.chown_R(@user, @group, @dump_path)
+        # have to make riak the owner since the riak-admin tool runs
+        # as the riak user in a default setup.
+        FileUtils.chown_R('riak', 'riak', @dump_path)
 
         backup_file = File.join(@dump_path, name)
         run("#{ riakadmin } #{ backup_file } node")
 
         if @model.compressor
           @model.compressor.compress_with do |command, ext|
-            backup_file << "-#{ node }"
             run("#{ command } -c #{ backup_file } > #{ backup_file + ext }")
             FileUtils.rm_f(backup_file)
           end

@@ -33,8 +33,7 @@ module Backup
       attr_accessor :pg_dump_utility
 
       attr_deprecate :utility_path, :version => '3.0.21',
-          :message => 'Use PostgreSQL#pg_dump_utility instead.',
-          :action => lambda {|klass, val| klass.pg_dump_utility = val }
+          :replacement => :pg_dump_utility
 
       ##
       # Creates a new instance of the PostgreSQL adapter object
@@ -68,12 +67,11 @@ module Backup
             dump_ext << ext
           end
         end
+        pipeline << "cat > '#{ File.join(@dump_path, name) }.#{ dump_ext }'"
 
-        pipeline << "#{ utility(:cat) } > " +
-            "'#{ File.join(@dump_path, name) }.#{ dump_ext }'"
         pipeline.run
         if pipeline.success?
-          Logger.info "#{ database_name } Complete!"
+          Logger.message "#{ database_name } Complete!"
         else
           raise Errors::Database::PipelineError,
               "#{ database_name } Dump Failed!\n" +

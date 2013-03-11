@@ -150,7 +150,7 @@ module Backup
           email.convert_to_multipart
           email.attachments["#{@model.time}.#{@model.trigger}.log"] = {
             :mime_type => 'text/plain;',
-            :content   => Logger.messages.map(&:formatted_lines).flatten.join("\n")
+            :content   => Logger.messages.join("\n")
           }
         end
 

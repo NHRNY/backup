@@ -2,7 +2,7 @@
 
 module Backup
   class Splitter
-    include Backup::Utilities::Helpers
+    include Backup::CLI::Helpers
 
     def initialize(model, chunk_size)
       @model = model
@@ -32,7 +32,7 @@ module Backup
     # be suffixed using 'aa', 'ab', and so on... for each file.
     def before_packaging
       @package = @model.package
-      Logger.info "Splitter configured with a chunk size of " +
+      Logger.message "Splitter configured with a chunk size of " +
           "#{ @chunk_size }MB."
 
       @split_command = "#{ utility(:split) } -b #{ @chunk_size }m - " +

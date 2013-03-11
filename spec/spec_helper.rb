@@ -1,12 +1,15 @@
 # encoding: utf-8
 
+##
+# Use Bundler
 require 'rubygems' if RUBY_VERSION < '1.9'
 require 'bundler/setup'
+
+##
+# Load Backup
 require 'backup'
 
 require 'timecop'
-
-require File.expand_path('../support/sandbox_file_utils.rb', __FILE__)
 
 module Backup::ExampleHelpers
   # ripped from MiniTest :)
@@ -37,27 +40,21 @@ RSpec.configure do |config|
   # Example Helpers
   config.include Backup::ExampleHelpers
 
-  config.filter_run :focus => true
-  config.run_all_when_everything_filtered = true
-  config.treat_symbols_as_metadata_keys_with_true_values = true
-
-  config.before(:suite) do
-    # Initializes SandboxFileUtils so the first call to deactivate!(:noop)
-    # will set ::FileUtils to FileUtils::NoWrite
-    SandboxFileUtils.activate!
-  end
-
+  ##
+  # Actions to perform before each example
   config.before(:each) do
-    # ::FileUtils will always be either SandboxFileUtils or FileUtils::NoWrite.
-    SandboxFileUtils.deactivate!(:noop)
+    FileUtils.collect_method(:noop).each do |method|
+      FileUtils.stubs(method).raises("Unexpected call to FileUtils.#{ method }")
+    end
 
     Open4.stubs(:popen4).raises('Unexpected call to Open4::popen4()')
 
-    Backup::Utilities.send(:reset!)
-    Backup::Config.send(:reset!)
-    # Logger only queues messages received until Logger.start! is called.
-    Backup::Logger.send(:initialize!)
+    [:message, :error, :warn, :normal, :silent].each do |method|
+      Backup::Logger.stubs(method).raises("Unexpected call to Backup::Logger.#{ method }")
+    end
   end
 end
 
-puts "\nRuby version: #{ RUBY_DESCRIPTION }\n\n"
+unless @_put_ruby_version
+  puts @_put_ruby_version = "\n\nRuby version: #{ RUBY_DESCRIPTION }\n\n"
+end

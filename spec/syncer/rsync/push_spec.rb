@@ -136,7 +136,7 @@ describe Backup::Syncer::RSync::Push do
     it 'should sync two directories' do
       syncer.expects(:write_password_file!).in_sequence(s)
 
-      Backup::Logger.expects(:info).in_sequence(s).with(
+      Backup::Logger.expects(:message).in_sequence(s).with(
         "Syncer::RSync::Push started syncing the following directories:\n" +
         "  /some/directory\n" +
         "  ~/home/directory"
@@ -145,7 +145,8 @@ describe Backup::Syncer::RSync::Push do
         "rsync options_output '/some/directory' " +
         "'#{ File.expand_path('~/home/directory') }' " +
         "'my_username@123.45.678.90:my_backups'"
-      )
+      ).returns('messages from stdout')
+      Backup::Logger.expects(:silent).in_sequence(s).with('messages from stdout')
 
       syncer.expects(:remove_password_file!).in_sequence(s)
 
@@ -155,7 +156,7 @@ describe Backup::Syncer::RSync::Push do
     it 'should ensure passoword file removal' do
       syncer.expects(:write_password_file!).in_sequence(s)
 
-      Backup::Logger.expects(:info).in_sequence(s)
+      Backup::Logger.expects(:message).in_sequence(s)
       syncer.expects(:run).in_sequence(s).raises('error message')
 
       syncer.expects(:remove_password_file!).in_sequence(s)

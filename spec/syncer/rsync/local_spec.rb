@@ -92,7 +92,7 @@ describe Backup::Syncer::RSync::Local do
     end
 
     it 'should sync two directories' do
-      Backup::Logger.expects(:info).in_sequence(s).with(
+      Backup::Logger.expects(:message).in_sequence(s).with(
         "Syncer::RSync::Local started syncing the following directories:\n" +
         "  /some/directory\n" +
         "  ~/home/directory"
@@ -101,7 +101,8 @@ describe Backup::Syncer::RSync::Local do
         "rsync options_output '/some/directory' " +
         "'#{ File.expand_path('~/home/directory') }' " +
         "'#{ File.expand_path('~/my_backups') }'"
-      )
+      ).returns('messages from stdout')
+      Backup::Logger.expects(:silent).in_sequence(s).with('messages from stdout')
 
       syncer.perform!
     end

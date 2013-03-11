@@ -47,12 +47,14 @@ module Backup
         def perform!
           write_password_file!
 
-          Logger.info(
+          Logger.message(
             "#{ syncer_name } started syncing the following directories:\n\s\s" +
             @directories.join("\n\s\s")
           )
-          run("#{ utility(:rsync) } #{ options } #{ directories_option } " +
-              "'#{ username }@#{ ip }:#{ dest_path }'")
+          Logger.silent(
+            run("#{ utility(:rsync) } #{ options } #{ directories_option } " +
+                "'#{ username }@#{ ip }:#{ dest_path }'")
+          )
 
         ensure
           remove_password_file!

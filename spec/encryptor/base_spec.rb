@@ -5,9 +5,9 @@ require File.expand_path('../../spec_helper.rb', __FILE__)
 describe Backup::Encryptor::Base do
   let(:base) { Backup::Encryptor::Base.new }
 
-  it 'should include Utilities::Helpers' do
+  it 'should include CLI::Helpers' do
     Backup::Encryptor::Base.
-      include?(Backup::Utilities::Helpers).should be_true
+      include?(Backup::CLI::Helpers).should be_true
   end
 
   it 'should include Configuration::Helpers' do
@@ -31,7 +31,7 @@ describe Backup::Encryptor::Base do
   describe '#log!' do
     it 'should log a message' do
       base.expects(:encryptor_name).returns('Encryptor Name')
-      Backup::Logger.expects(:info).with(
+      Backup::Logger.expects(:message).with(
         'Using Encryptor Name to encrypt the archive.'
       )
       base.send(:log!)

@@ -289,20 +289,15 @@ describe Backup::Database::MongoDB do
         Timecop.freeze(Time.now)
         db.instance_variable_set(:@dump_path, '/path/to/dump/folder')
         db.expects(:utility).with(:tar).returns('tar')
-        db.expects(:utility).with(:cat).returns('cat')
         model.expects(:compressor).twice.returns(compressor)
         compressor.expects(:compress_with).yields('compressor_command', '.gz')
         Backup::Pipeline.expects(:new).returns(pipeline)
       end
 
-      after do
-        Timecop.return
-      end
-
       context 'when pipeline command succeeds' do
         it 'should package the dump directory, then remove it' do
 
-          Backup::Logger.expects(:info).in_sequence(s).with(
+          Backup::Logger.expects(:message).in_sequence(s).with(
             "Database::MongoDB started compressing and packaging:\n" +
             "  '/path/to/dump/folder'"
           )
@@ -317,7 +312,7 @@ describe Backup::Database::MongoDB do
 
           pipeline.expects(:run).in_sequence(s)
           pipeline.expects(:success?).in_sequence(s).returns(true)
-          Backup::Logger.expects(:info).in_sequence(s).with(
+          Backup::Logger.expects(:message).in_sequence(s).with(
             "Database::MongoDB completed compressing and packaging:\n" +
             "  '/path/to/dump/folder-#{ timestamp }.tar.gz'"
           )
@@ -336,7 +331,7 @@ describe Backup::Database::MongoDB do
         end
 
         it 'should raise an error' do
-          Backup::Logger.expects(:info).with(
+          Backup::Logger.expects(:message).with(
             "Database::MongoDB started compressing and packaging:\n" +
             "  '/path/to/dump/folder'"
           )
@@ -478,18 +473,19 @@ describe Backup::Database::MongoDB do
   end
 
   describe 'deprecations' do
+    after do
+      Backup::Database::MongoDB.clear_defaults!
+    end
+
     describe '#utility_path' do
       before do
         Backup::Database::MongoDB.any_instance.stubs(:utility)
-        Backup::Logger.expects(:warn).with {|err|
-          err.should be_an_instance_of Backup::Errors::ConfigurationError
-          err.message.should match(
-            /Use MongoDB#mongodump_utility instead/
-          )
-        }
-      end
-      after do
-        Backup::Database::MongoDB.clear_defaults!
+        Backup::Logger.expects(:warn).with(
+          instance_of(Backup::Errors::ConfigurationError)
+        )
+        Backup::Logger.expects(:warn).with(
+          "Backup::Database::MongoDB.mongodump_utility is being set to 'foo'"
+        )
       end
 
       context 'when set directly' do

@@ -143,7 +143,6 @@ describe Backup::Database::MySQL do
       db.instance_variable_set(:@dump_path, '/dump/path')
 
       db.stubs(:mysqldump).returns('mysqldump_command')
-      db.expects(:utility).with(:cat).returns('cat')
       db.stubs(:dump_filename).returns('dump_filename')
       Backup::Pipeline.expects(:new).returns(pipeline)
     end
@@ -160,7 +159,7 @@ describe Backup::Database::MySQL do
         )
         pipeline.expects(:run).in_sequence(s)
         pipeline.expects(:success?).in_sequence(s).returns(true)
-        Backup::Logger.expects(:info).in_sequence(s).with(
+        Backup::Logger.expects(:message).in_sequence(s).with(
           'Database::MySQL Complete!'
         )
 
@@ -183,7 +182,7 @@ describe Backup::Database::MySQL do
         )
         pipeline.expects(:run).in_sequence(s)
         pipeline.expects(:success?).in_sequence(s).returns(true)
-        Backup::Logger.expects(:info).in_sequence(s).with(
+        Backup::Logger.expects(:message).in_sequence(s).with(
           'Database::MySQL Complete!'
         )
 
@@ -375,18 +374,19 @@ describe Backup::Database::MySQL do
   end
 
   describe 'deprecations' do
+    after do
+      Backup::Database::MySQL.clear_defaults!
+    end
+
     describe '#utility_path' do
       before do
         Backup::Database::MySQL.any_instance.stubs(:utility)
-        Backup::Logger.expects(:warn).with {|err|
-          err.should be_an_instance_of Backup::Errors::ConfigurationError
-          err.message.should match(
-            /Use MySQL#mysqldump_utility instead/
-          )
-        }
-      end
-      after do
-        Backup::Database::MySQL.clear_defaults!
+        Backup::Logger.expects(:warn).with(
+          instance_of(Backup::Errors::ConfigurationError)
+        )
+        Backup::Logger.expects(:warn).with(
+          "Backup::Database::MySQL.mysqldump_utility is being set to 'foo'"
+        )
       end
 
       context 'when set directly' do

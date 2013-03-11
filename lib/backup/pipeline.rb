@@ -2,13 +2,12 @@
 
 module Backup
   class Pipeline
-    include Backup::Utilities::Helpers
+    include Backup::CLI::Helpers
 
     attr_reader :stderr, :errors
 
     def initialize
       @commands = []
-      @success_codes = []
       @errors = []
       @stderr = ''
     end
@@ -17,21 +16,8 @@ module Backup
     # Adds a command to be executed in the pipeline.
     # Each command will be run in the order in which it was added,
     # with it's output being piped to the next command.
-    #
-    # +success_codes+ must be an Array of Integer exit codes that will
-    # be considered successful for the +command+.
-    def add(command, success_codes)
-      @commands << command
-      @success_codes << success_codes
-    end
-
-    ##
-    # Commands added using this method will only be considered successful
-    # if their exit status is 0.
-    #
-    # Use #add if successful exit status codes need to be specified.
     def <<(command)
-      add(command, [0])
+      @commands << command
     end
 
     ##
@@ -53,7 +39,7 @@ module Backup
         pipestatus = stdout.read.gsub("\n", '').split(':').sort
         pipestatus.each do |status|
           index, exitstatus = status.split('|').map(&:to_i)
-          unless @success_codes[index].include?(exitstatus)
+          if exitstatus > 0
             command = command_name(@commands[index])
             @errors << SystemCallError.new(
               "'#{ command }' returned exit code: #{ exitstatus }", exitstatus

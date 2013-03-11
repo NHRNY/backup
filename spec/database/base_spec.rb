@@ -6,9 +6,9 @@ describe Backup::Database::Base do
   let(:model) { Backup::Model.new('foo', 'foo') }
   let(:db) { Backup::Database::Base.new(model) }
 
-  it 'should include Utilities::Helpers' do
+  it 'should include CLI::Helpers' do
     Backup::Database::Base.
-      include?(Backup::Utilities::Helpers).should be_true
+      include?(Backup::CLI::Helpers).should be_true
   end
 
   it 'should include Configuration::Helpers' do
@@ -53,7 +53,7 @@ describe Backup::Database::Base do
   describe '#log!' do
     it 'should use #database_name' do
       db.stubs(:name).returns('database_name')
-      Backup::Logger.expects(:info).with(
+      Backup::Logger.expects(:message).with(
         "Database::Base started dumping and archiving 'database_name'."
       )
 

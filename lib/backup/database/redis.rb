@@ -31,8 +31,7 @@ module Backup
       attr_accessor :redis_cli_utility
 
       attr_deprecate :utility_path, :version => '3.0.21',
-          :message => 'Use Redis#redis_cli_utility instead.',
-          :action => lambda {|klass, val| klass.redis_cli_utility = val }
+          :replacement => :redis_cli_utility
 
       ##
       # Creates a new instance of the Redis database object

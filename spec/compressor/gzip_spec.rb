@@ -4,8 +4,6 @@ require File.expand_path('../../spec_helper.rb', __FILE__)
 
 describe Backup::Compressor::Gzip do
   before do
-    Backup::Compressor::Gzip.stubs(:utility).returns('gzip')
-    Backup::Compressor::Gzip.instance_variable_set(:@has_rsyncable, true)
     Backup::Compressor::Gzip.any_instance.stubs(:utility).returns('gzip')
   end
 
@@ -14,71 +12,32 @@ describe Backup::Compressor::Gzip do
       superclass.should == Backup::Compressor::Base
   end
 
-  it 'should be extended by Utilities::Helpers' do
-    Backup::Compressor::Gzip.instance_eval('class << self; self; end').
-        should include(Backup::Utilities::Helpers)
-  end
-
-  describe '.has_rsyncable?' do
-    before do
-      Backup::Compressor::Gzip.instance_variable_set(:@has_rsyncable, nil)
-    end
-
-    context 'when --rsyncable is available' do
-      before do
-        Backup::Compressor::Gzip.expects(:`).once.
-            with('gzip --rsyncable --version >/dev/null 2>&1; echo $?').
-            returns("0\n")
-      end
-
-      it 'returns true and caches the result' do
-        Backup::Compressor::Gzip.has_rsyncable?.should be(true)
-        Backup::Compressor::Gzip.has_rsyncable?.should be(true)
-      end
-    end
-
-    context 'when --rsyncable is not available' do
-      before do
-        Backup::Compressor::Gzip.expects(:`).once.
-            with('gzip --rsyncable --version >/dev/null 2>&1; echo $?').
-            returns("1\n")
-      end
-
-      it 'returns false and caches the result' do
-        Backup::Compressor::Gzip.has_rsyncable?.should be(false)
-        Backup::Compressor::Gzip.has_rsyncable?.should be(false)
-      end
-    end
-  end
-
   describe '#initialize' do
     let(:compressor) { Backup::Compressor::Gzip.new }
 
     after { Backup::Compressor::Gzip.clear_defaults! }
 
+    it 'should load pre-configured defaults' do
+      Backup::Compressor::Gzip.any_instance.expects(:load_defaults!)
+      compressor
+    end
+
     context 'when no pre-configured defaults have been set' do
       it 'should use default values' do
-        compressor.level.should be(false)
-        compressor.rsyncable.should be(false)
+        compressor.level.should be_false
 
-        compressor.compress_with do |cmd, ext|
-          cmd.should == 'gzip'
-          ext.should == '.gz'
-        end
+        compressor.instance_variable_get(:@cmd).should == 'gzip'
+        compressor.instance_variable_get(:@ext).should == '.gz'
       end
 
       it 'should use the values given' do
         compressor = Backup::Compressor::Gzip.new do |c|
           c.level = 5
-          c.rsyncable = true
         end
         compressor.level.should == 5
-        compressor.rsyncable.should be(true)
 
-        compressor.compress_with do |cmd, ext|
-          cmd.should == 'gzip -5 --rsyncable'
-          ext.should == '.gz'
-        end
+        compressor.instance_variable_get(:@cmd).should == 'gzip -5'
+        compressor.instance_variable_get(:@ext).should == '.gz'
       end
     end # context 'when no pre-configured defaults have been set'
 
@@ -86,75 +45,46 @@ describe Backup::Compressor::Gzip do
       before do
         Backup::Compressor::Gzip.defaults do |c|
           c.level = 7
-          c.rsyncable = true
         end
       end
 
       it 'should use pre-configured defaults' do
         compressor.level.should == 7
-        compressor.rsyncable.should be(true)
 
-        compressor.compress_with do |cmd, ext|
-          cmd.should == 'gzip -7 --rsyncable'
-          ext.should == '.gz'
-        end
+        compressor.instance_variable_get(:@cmd).should == 'gzip -7'
+        compressor.instance_variable_get(:@ext).should == '.gz'
       end
 
       it 'should override pre-configured defaults' do
         compressor = Backup::Compressor::Gzip.new do |c|
           c.level = 6
-          c.rsyncable = false
         end
         compressor.level.should == 6
-        compressor.rsyncable.should be(false)
 
-        compressor.compress_with do |cmd, ext|
-          cmd.should == 'gzip -6'
-          ext.should == '.gz'
-        end
+        compressor.instance_variable_get(:@cmd).should == 'gzip -6'
+        compressor.instance_variable_get(:@ext).should == '.gz'
       end
     end # context 'when pre-configured defaults have been set'
-
-    it 'should ignore rsyncable option and warn user if not supported' do
-      Backup::Compressor::Gzip.instance_variable_set(:@has_rsyncable, false)
-
-      Backup::Logger.expects(:warn).with() do |err|
-        err.should be_a(Backup::Errors::Compressor::Gzip::RsyncableError)
-        err.message.should match(/'rsyncable' option ignored/)
-      end
-
-      compressor = Backup::Compressor::Gzip.new do |c|
-        c.level = 5
-        c.rsyncable = true
-      end
-      compressor.level.should == 5
-      compressor.rsyncable.should be(true)
-
-      compressor.compress_with do |cmd, ext|
-        cmd.should == 'gzip -5'
-        ext.should == '.gz'
-      end
-    end
   end # describe '#initialize'
 
   describe 'deprecations' do
     describe 'fast and best options' do
       context 'when only the fast option is used' do
         before do
-          Backup::Logger.expects(:warn).with {|err|
-            err.should be_an_instance_of Backup::Errors::ConfigurationError
-            err.message.should match(
-              /Use Gzip#level instead/
-            )
-          }
+          Backup::Logger.expects(:warn).with(
+            instance_of(Backup::Errors::ConfigurationError)
+          )
         end
 
         context 'when set to true' do
           it 'should log a warning and set `level` to 1' do
+            Backup::Logger.expects(:warn).with(
+              "Backup::Compressor::Gzip.level is being set to '1'"
+            )
             compressor = Backup::Compressor::Gzip.new do |c|
               c.fast = true
             end
-            compressor.level.should == 1
+            compressor.level.should be(1)
           end
         end
 
@@ -170,20 +100,20 @@ describe Backup::Compressor::Gzip do
 
       context 'when only the best option is used' do
         before do
-          Backup::Logger.expects(:warn).with {|err|
-            err.should be_an_instance_of Backup::Errors::ConfigurationError
-            err.message.should match(
-              /Use Gzip#level instead/
-            )
-          }
+          Backup::Logger.expects(:warn).with(
+            instance_of(Backup::Errors::ConfigurationError)
+          )
         end
 
         context 'when set to true' do
           it 'should log a warning and set `level` to 1' do
+            Backup::Logger.expects(:warn).with(
+              "Backup::Compressor::Gzip.level is being set to '9'"
+            )
             compressor = Backup::Compressor::Gzip.new do |c|
               c.best = true
             end
-            compressor.level.should == 9
+            compressor.level.should be(9)
           end
         end
 
@@ -200,17 +130,20 @@ describe Backup::Compressor::Gzip do
 
       context 'when both fast and best options are used' do
         before do
-          Backup::Logger.expects(:warn).twice.with {|err|
-            err.should be_an_instance_of Backup::Errors::ConfigurationError
-            err.message.should match(
-              /Use Gzip#level instead/
-            )
-          }
+          Backup::Logger.expects(:warn).twice.with(
+            instance_of(Backup::Errors::ConfigurationError)
+          )
         end
 
         context 'when both are set true' do
           context 'when fast is set first' do
             it 'should cause the best option to be set' do
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '1'"
+              )
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '9'"
+              )
               compressor = Backup::Compressor::Gzip.new do |c|
                 c.fast = true
                 c.best = true
@@ -221,6 +154,12 @@ describe Backup::Compressor::Gzip do
 
           context 'when best is set first' do
             it 'should cause the fast option to be set' do
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '1'"
+              )
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '9'"
+              )
               compressor = Backup::Compressor::Gzip.new do |c|
                 c.best = true
                 c.fast = true
@@ -233,6 +172,9 @@ describe Backup::Compressor::Gzip do
         context 'when only one is set true' do
           context 'when fast is set true before best' do
             it 'should cause the fast option to be set' do
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '1'"
+              )
               compressor = Backup::Compressor::Gzip.new do |c|
                 c.fast = true
                 c.best = false
@@ -243,6 +185,9 @@ describe Backup::Compressor::Gzip do
 
           context 'when fast is set true after best' do
             it 'should cause the fast option to be set' do
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '1'"
+              )
               compressor = Backup::Compressor::Gzip.new do |c|
                 c.best = false
                 c.fast = true
@@ -253,6 +198,9 @@ describe Backup::Compressor::Gzip do
 
           context 'when best is set true before fast' do
             it 'should cause the best option to be set' do
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '9'"
+              )
               compressor = Backup::Compressor::Gzip.new do |c|
                 c.best = true
                 c.fast = false
@@ -263,6 +211,9 @@ describe Backup::Compressor::Gzip do
 
           context 'when best is set true after fast' do
             it 'should cause the best option to be set' do
+              Backup::Logger.expects(:warn).with(
+                "Backup::Compressor::Gzip.level is being set to '9'"
+              )
               compressor = Backup::Compressor::Gzip.new do |c|
                 c.fast = false
                 c.best = true

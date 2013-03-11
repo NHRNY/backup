@@ -143,7 +143,6 @@ describe Backup::Database::PostgreSQL do
       db.instance_variable_set(:@dump_path, '/dump/path')
 
       db.stubs(:pgdump).returns('pgdump_command')
-      db.expects(:utility).with(:cat).returns('cat')
       Backup::Pipeline.expects(:new).returns(pipeline)
     end
 
@@ -159,7 +158,7 @@ describe Backup::Database::PostgreSQL do
         )
         pipeline.expects(:run).in_sequence(s)
         pipeline.expects(:success?).in_sequence(s).returns(true)
-        Backup::Logger.expects(:info).in_sequence(s).with(
+        Backup::Logger.expects(:message).in_sequence(s).with(
           'Database::PostgreSQL Complete!'
         )
 
@@ -182,7 +181,7 @@ describe Backup::Database::PostgreSQL do
         )
         pipeline.expects(:run).in_sequence(s)
         pipeline.expects(:success?).in_sequence(s).returns(true)
-        Backup::Logger.expects(:info).in_sequence(s).with(
+        Backup::Logger.expects(:message).in_sequence(s).with(
           'Database::PostgreSQL Complete!'
         )
 
@@ -317,18 +316,19 @@ describe Backup::Database::PostgreSQL do
   end
 
   describe 'deprecations' do
+    after do
+      Backup::Database::PostgreSQL.clear_defaults!
+    end
+
     describe '#utility_path' do
       before do
         Backup::Database::PostgreSQL.any_instance.stubs(:utility)
-        Backup::Logger.expects(:warn).with {|err|
-          err.should be_an_instance_of Backup::Errors::ConfigurationError
-          err.message.should match(
-            /Use PostgreSQL#pg_dump_utility instead/
-          )
-        }
-      end
-      after do
-        Backup::Database::PostgreSQL.clear_defaults!
+        Backup::Logger.expects(:warn).with(
+          instance_of(Backup::Errors::ConfigurationError)
+        )
+        Backup::Logger.expects(:warn).with(
+          "Backup::Database::PostgreSQL.pg_dump_utility is being set to 'foo'"
+        )
       end
 
       context 'when set directly' do

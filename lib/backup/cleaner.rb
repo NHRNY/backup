@@ -50,7 +50,7 @@ module Backup
       ##
       # Remove the temporary folder used during packaging
       def remove_packaging(model)
-        Logger.info "Cleaning up the temporary files..."
+        Logger.message "Cleaning up the temporary files..."
         FileUtils.rm_rf(File.join(Config.tmp_path, model.trigger))
       end
 
@@ -58,7 +58,7 @@ module Backup
       # Remove the final package files from tmp_path
       # Note: 'force' is used, since a Local Storage may *move* these files.
       def remove_package(package)
-        Logger.info "Cleaning up the package files..."
+        Logger.message "Cleaning up the package files..."
         package.filenames.each do |file|
           FileUtils.rm_f(File.join(Config.tmp_path, file))
         end

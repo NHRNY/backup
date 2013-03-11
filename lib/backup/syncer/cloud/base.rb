@@ -49,10 +49,7 @@ module Backup
         ##
         # Performs the Sync operation
         def perform!
-          Logger.info(
-            "#{ syncer_name } started the syncing process:\n" +
-            "\s\sConcurrency: #{ @concurrency_type } Level: #{ @concurrency_level }"
-          )
+          Logger.message("#{ syncer_name } started the syncing process:")
 
           @directories.each do |directory|
             SyncContext.new(
@@ -60,14 +57,12 @@ module Backup
             ).sync! @mirror, @concurrency_type, @concurrency_level
           end
 
-          Logger.info("#{ syncer_name } Syncing Complete!")
+          Logger.message("#{ syncer_name } Syncing Complete!")
         end
 
         private
 
         class SyncContext
-          include Utilities::Helpers
-
           attr_reader :directory, :bucket, :path, :remote_base
 
           ##
@@ -86,7 +81,7 @@ module Backup
 
             case concurrency_type
             when FalseClass
-              all_file_names.each(&block)
+              all_file_names.each &block
             when :threads
               Parallel.each all_file_names,
                   :in_threads => concurrency_level, &block
@@ -128,14 +123,11 @@ module Backup
 
           ##
           # Returns a String of file paths and their md5 hashes.
-          #
-          # Utilities#run is not used here because this would produce too much
-          # log output, and Pipeline does not support capturing output.
           def local_hashes
-            Logger.info("\s\sGenerating checksums for '#{ @directory }'")
-            cmd = "#{ utility(:find) } -L '#{ @directory }' -type f -print0 | " +
-                "#{ utility(:xargs) } -0 #{ utility(:openssl) } md5 2> /dev/null"
-            %x[#{ cmd }]
+            MUTEX.synchronize {
+              Logger.message("\s\sGenerating checksums for '#{ @directory }'")
+            }
+            `find #{ @directory } -print0 | xargs -0 openssl md5 2> /dev/null`
           end
 
           ##
@@ -167,7 +159,7 @@ module Backup
             if local_file && File.exist?(local_file.path)
               unless remote_file && remote_file.etag == local_file.md5
                 MUTEX.synchronize {
-                  Logger.info("\s\s[transferring] '#{ remote_path }'")
+                  Logger.message("\s\s[transferring] '#{ remote_path }'")
                 }
                 File.open(local_file.path, 'r') do |file|
                   @bucket.files.create(
@@ -177,18 +169,18 @@ module Backup
                 end
               else
                 MUTEX.synchronize {
-                  Logger.info("\s\s[skipping] '#{ remote_path }'")
+                  Logger.message("\s\s[skipping] '#{ remote_path }'")
                 }
               end
             elsif remote_file
               if mirror
                 MUTEX.synchronize {
-                  Logger.info("\s\s[removing] '#{ remote_path }'")
+                  Logger.message("\s\s[removing] '#{ remote_path }'")
                 }
                 remote_file.destroy
               else
                 MUTEX.synchronize {
-                  Logger.info("\s\s[leaving] '#{ remote_path }'")
+                  Logger.message("\s\s[leaving] '#{ remote_path }'")
                 }
               end
             end
@@ -204,10 +196,12 @@ module Backup
           def self.new(*args)
             local_file = super(*args)
             if local_file.invalid?
-              Logger.warn(
-                "\s\s[skipping] #{ local_file.path }\n" +
-                "\s\sPath Contains Invalid UTF-8 byte sequences"
-              )
+              MUTEX.synchronize {
+                Logger.warn(
+                  "\s\s[skipping] #{ local_file.path }\n" +
+                  "\s\sPath Contains Invalid UTF-8 byte sequences"
+                )
+              }
               return nil
             end
             local_file
@@ -220,9 +214,8 @@ module Backup
           def initialize(directory, line)
             @invalid = false
             @directory = sanitize(directory)
-            line = sanitize(line).chomp
-            @path = line.slice(4..-36)
-            @md5 = line.slice(-32..-1)
+            @path, @md5 = sanitize(line).chomp.
+                match(/^MD5\(([^\)]+)\)= (\w+)$/).captures
             @relative_path = @path.sub(@directory + '/', '')
           end
 

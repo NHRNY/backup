@@ -7,11 +7,6 @@ describe Backup::Splitter do
   let(:splitter) { Backup::Splitter.new(model, 250) }
   let(:package) { mock }
 
-  it 'should include Utilities::Helpers' do
-    Backup::Splitter.
-        include?(Backup::Utilities::Helpers).should be_true
-  end
-
   describe '#initialize' do
     it 'should set instance variables' do
       splitter.instance_variable_get(:@model).should be(model)
@@ -43,7 +38,7 @@ describe Backup::Splitter do
     end
 
     it 'should set @package and @split_command' do
-      Backup::Logger.expects(:info).with(
+      Backup::Logger.expects(:message).with(
         'Splitter configured with a chunk size of 250MB.'
       )
       splitter.send(:before_packaging)
@@ -103,25 +98,20 @@ describe Backup::Splitter do
 
   describe '#chunks' do
     before do
-      @tmpdir = Dir.mktmpdir('backup_spec')
-      SandboxFileUtils.activate!(@tmpdir)
       splitter.instance_variable_set(:@package, package)
       package.expects(:basename).returns('base_filename')
-    end
-
-    after do
-      FileUtils.rm_r(@tmpdir, :force => true, :secure => true)
+      FileUtils.unstub(:touch)
     end
 
     it 'should return a sorted array of chunked file paths' do
-      Dir.chdir(@tmpdir) do |path|
-        Backup::Config.expects(:tmp_path).returns(path)
-        FileUtils.touch(File.join(path, 'base_filename-aa'))
-        FileUtils.touch(File.join(path, 'base_filename-ab'))
+      Dir.mktmpdir do |dir|
+        Backup::Config.expects(:tmp_path).returns(dir)
+        FileUtils.touch(File.join(dir, 'base_filename-aa'))
+        FileUtils.touch(File.join(dir, 'base_filename-ab'))
 
         splitter.send(:chunks).should == [
-          File.join(path, 'base_filename-aa'),
-          File.join(path, 'base_filename-ab')
+          File.join(dir, 'base_filename-aa'),
+          File.join(dir, 'base_filename-ab')
         ]
       end
     end

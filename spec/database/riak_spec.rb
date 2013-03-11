@@ -10,8 +10,6 @@ describe Backup::Database::Riak do
       db.node         = 'riak@localhost'
       db.cookie       = 'riak'
       db.riak_admin_utility = '/path/to/riak-admin'
-      db.user         = 'riak1'
-      db.group        = 'riak1'
     end
   end
 
@@ -38,8 +36,6 @@ describe Backup::Database::Riak do
           db.node.should      == 'riak@localhost'
           db.cookie.should    == 'riak'
           db.riak_admin_utility.should == '/path/to/riak-admin'
-          db.user.should      == 'riak1'
-          db.group.should     == 'riak1'
         end
       end
 
@@ -56,8 +52,6 @@ describe Backup::Database::Riak do
           db.node.should        be_nil
           db.cookie.should      be_nil
           db.riak_admin_utility.should == '/real/riak-admin'
-          db.user.should        == 'riak'
-          db.group.should       == 'riak'
         end
       end
     end # context 'when no pre-configured defaults have been set'
@@ -69,8 +63,6 @@ describe Backup::Database::Riak do
           db.node         = 'db_node'
           db.cookie       = 'db_cookie'
           db.riak_admin_utility = '/default/path/to/riak-admin'
-          db.user         = 'riak2'
-          db.group        = 'riak2'
         end
       end
 
@@ -82,8 +74,6 @@ describe Backup::Database::Riak do
           db.node.should      == 'riak@localhost'
           db.cookie.should    == 'riak'
           db.riak_admin_utility.should == '/path/to/riak-admin'
-          db.user.should      == 'riak1'
-          db.group.should     == 'riak1'
         end
       end
 
@@ -95,8 +85,6 @@ describe Backup::Database::Riak do
           db.node.should        == 'db_node'
           db.cookie.should      == 'db_cookie'
           db.riak_admin_utility.should == '/default/path/to/riak-admin'
-          db.user.should        == 'riak2'
-          db.group.should       == 'riak2'
         end
       end
     end # context 'when no pre-configured defaults have been set'
@@ -116,7 +104,7 @@ describe Backup::Database::Riak do
 
     context 'when no compressor is configured' do
       it 'should only perform the riak-admin backup command' do
-        FileUtils.expects(:chown_R).with('riak1', 'riak1', '/dump/path')
+        FileUtils.expects(:chown_R).with('riak', 'riak', '/dump/path')
         db.expects(:run).in_sequence(s).
             with('riakadmin_command /dump/path/mydatabase node')
 
@@ -131,15 +119,13 @@ describe Backup::Database::Riak do
       end
 
       it 'should compress the backup file and remove the source file' do
-        FileUtils.expects(:chown_R).with('riak1', 'riak1', '/dump/path')
+        FileUtils.expects(:chown_R).with('riak', 'riak', '/dump/path')
         db.expects(:run).in_sequence(s).
             with('riakadmin_command /dump/path/mydatabase node')
         db.expects(:run).in_sequence(s).with(
-          "compressor_command -c /dump/path/mydatabase-riak@localhost > " +
-          "/dump/path/mydatabase-riak@localhost.gz"
+          "compressor_command -c /dump/path/mydatabase > /dump/path/mydatabase.gz"
         )
-        FileUtils.expects(:rm_f).in_sequence(s).
-            with('/dump/path/mydatabase-riak@localhost')
+        FileUtils.expects(:rm_f).in_sequence(s).with('/dump/path/mydatabase')
 
         db.perform!
       end
@@ -153,18 +139,19 @@ describe Backup::Database::Riak do
   end
 
   describe 'deprecations' do
+    after do
+      Backup::Database::Riak.clear_defaults!
+    end
+
     describe '#utility_path' do
       before do
         Backup::Database::Riak.any_instance.stubs(:utility)
-        Backup::Logger.expects(:warn).with {|err|
-          err.should be_an_instance_of Backup::Errors::ConfigurationError
-          err.message.should match(
-            /Use Riak#riak_admin_utility instead/
-          )
-        }
-      end
-      after do
-        Backup::Database::Riak.clear_defaults!
+        Backup::Logger.expects(:warn).with(
+          instance_of(Backup::Errors::ConfigurationError)
+        )
+        Backup::Logger.expects(:warn).with(
+          "Backup::Database::Riak.riak_admin_utility is being set to 'foo'"
+        )
       end
 
       context 'when set directly' do

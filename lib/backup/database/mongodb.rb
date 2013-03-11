@@ -33,8 +33,7 @@ module Backup
       attr_accessor :mongodump_utility
 
       attr_deprecate :utility_path, :version => '3.0.21',
-          :message => 'Use MongoDB#mongodump_utility instead.',
-          :action => lambda {|klass, val| klass.mongodump_utility = val }
+          :replacement => :mongodump_utility
 
       ##
       # Path to the mongo utility (optional)
@@ -121,7 +120,7 @@ module Backup
         timestamp = Time.now.to_i.to_s[-5, 5]
         outfile   = @dump_path + '-' + timestamp + '.tar'
 
-        Logger.info(
+        Logger.message(
           "#{ database_name } started compressing and packaging:\n" +
           "  '#{ @dump_path }'"
         )
@@ -131,11 +130,11 @@ module Backup
           pipeline << command
           outfile << ext
         end
+        pipeline << "cat > #{ outfile }"
 
-        pipeline << "#{ utility(:cat) } > #{ outfile }"
         pipeline.run
         if pipeline.success?
-          Logger.info(
+          Logger.message(
             "#{ database_name } completed compressing and packaging:\n" +
             "  '#{ outfile }'"
           )

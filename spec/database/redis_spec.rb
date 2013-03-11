@@ -297,18 +297,19 @@ describe Backup::Database::Redis do
   end
 
   describe 'deprecations' do
+    after do
+      Backup::Database::Redis.clear_defaults!
+    end
+
     describe '#utility_path' do
       before do
         Backup::Database::Redis.any_instance.stubs(:utility)
-        Backup::Logger.expects(:warn).with {|err|
-          err.should be_an_instance_of Backup::Errors::ConfigurationError
-          err.message.should match(
-            /Use Redis#redis_cli_utility instead/
-          )
-        }
-      end
-      after do
-        Backup::Database::Redis.clear_defaults!
+        Backup::Logger.expects(:warn).with(
+          instance_of(Backup::Errors::ConfigurationError)
+        )
+        Backup::Logger.expects(:warn).with(
+          "Backup::Database::Redis.redis_cli_utility is being set to 'foo'"
+        )
       end
 
       context 'when set directly' do

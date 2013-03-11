@@ -5,9 +5,9 @@ require File.expand_path('../../spec_helper.rb', __FILE__)
 describe Backup::Syncer::Base do
   let(:syncer)    { Backup::Syncer::Base.new }
 
-  it 'should include Utilities::Helpers' do
+  it 'should include CLI::Helpers' do
     Backup::Syncer::Base.
-      include?(Backup::Utilities::Helpers).should be_true
+      include?(Backup::CLI::Helpers).should be_true
   end
 
   it 'should include Configuration::Helpers' do

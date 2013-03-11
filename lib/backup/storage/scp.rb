@@ -1,5 +1,9 @@
 # encoding: utf-8
 
+##
+# Only load the Net::SSH and Net::SCP library/gems
+# when the Backup::Storage::SCP class is loaded
+Backup::Dependency.load('net-ssh')
 Backup::Dependency.load('net-scp')
 
 module Backup
@@ -52,7 +56,7 @@ module Backup
           ssh.exec!("mkdir -p '#{ remote_path }'")
 
           files_to_transfer_for(@package) do |local_file, remote_file|
-            Logger.info "#{storage_name} started transferring " +
+            Logger.message "#{storage_name} started transferring " +
                 "'#{local_file}' to '#{ip}'."
 
             ssh.scp.upload!(
@@ -75,7 +79,7 @@ module Backup
           messages << "#{storage_name} started removing " +
               "'#{local_file}' from '#{ip}'."
         end
-        Logger.info messages.join("\n")
+        Logger.message messages.join("\n")
 
         errors = []
         connection do |ssh|

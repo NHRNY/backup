@@ -2,23 +2,23 @@
 
 module Backup
   class Archive
-    include Backup::Utilities::Helpers
+    include Backup::CLI::Helpers
 
     ##
     # Stores the name of the archive
-    attr_reader :name
+    attr_accessor :name
 
     ##
     # Stores an array of different paths/files to store
-    attr_reader :paths
+    attr_accessor :paths
 
     ##
     # Stores an array of different paths/files to exclude
-    attr_reader :excludes
+    attr_accessor :excludes
 
     ##
     # String of additional arguments for the `tar` command
-    attr_reader :tar_args
+    attr_accessor :tar_args
 
     ##
     # Takes the name of the archive and the configuration block
@@ -35,7 +35,16 @@ module Backup
     ##
     # Adds new paths to the @paths instance variable array
     def add(path)
-      @paths << File.expand_path(path)
+      path = File.expand_path(path)
+      if File.exist?(path)
+        @paths << path
+      else
+        Logger.warn Errors::Archive::NotFoundError.new(<<-EOS)
+          The following path was not found:
+          #{ path }
+          This path will be omitted from the '#{ name }' Archive.
+        EOS
+      end
     end
 
     ##
@@ -58,7 +67,7 @@ module Backup
     # will be piped through the Compressor command and the file extension
     # will be adjusted to indicate the type of compression used.
     def perform!
-      Logger.info "#{ self.class } has started archiving:\n" +
+      Logger.message "#{ self.class } has started archiving:\n" +
           paths.map {|path| "  #{path}" }.join("\n")
 
       archive_path = File.join(Config.tmp_path, @model.trigger, 'archives')
@@ -67,11 +76,8 @@ module Backup
       archive_ext = 'tar'
       pipeline = Pipeline.new
 
-      pipeline.add(
-        "#{ utility(:tar) } #{ tar_arguments } -cPf - " +
-        "#{ paths_to_exclude } #{ paths_to_package }",
-        tar_success_codes
-      )
+      pipeline << "#{ utility(:tar) } #{ tar_args } -cPf - " +
+          "#{ paths_to_exclude } #{ paths_to_package }"
 
       if @model.compressor
         @model.compressor.compress_with do |command, ext|
@@ -80,11 +86,10 @@ module Backup
         end
       end
 
-      pipeline << "#{ utility(:cat) } > " +
-          "'#{ File.join(archive_path, "#{name}.#{archive_ext}") }'"
+      pipeline << "cat > '#{ File.join(archive_path, "#{name}.#{archive_ext}") }'"
       pipeline.run
       if pipeline.success?
-        Logger.info "#{ self.class } Complete!"
+        Logger.message "#{ self.class } Complete!"
       else
         raise Errors::Archive::PipelineError,
             "Failed to Create Backup Archive\n" +
@@ -108,16 +113,5 @@ module Backup
       end
     end
 
-    ##
-    # Returns arguments for GNU or BSD tar.
-    def tar_arguments
-      gnu_tar? ? "--ignore-failed-read #{ tar_args }".strip : tar_args
-    end
-
-    ##
-    # Returns successful GNU or BSD tar exit codes.
-    def tar_success_codes
-      gnu_tar? ? [0, 1] : [0]
-    end
   end
 end

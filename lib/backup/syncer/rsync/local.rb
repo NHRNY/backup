@@ -25,12 +25,14 @@ module Backup
         # Performs the RSync::Local operation
         # debug options: -vhP
         def perform!
-          Logger.info(
+          Logger.message(
             "#{ syncer_name } started syncing the following directories:\n\s\s" +
             @directories.join("\n\s\s")
           )
-          run("#{ utility(:rsync) } #{ options } " +
-              "#{ directories_option } '#{ dest_path }'")
+          Logger.silent(
+            run("#{ utility(:rsync) } #{ options } " +
+                "#{ directories_option } '#{ dest_path }'")
+          )
         end
 
         private

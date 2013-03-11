@@ -25,7 +25,7 @@ module Backup
         # for the storage and sets the @packages_to_remove
         def update_storage_file!
           packages = yaml_load.unshift(@package)
-          excess = packages.count - @storage.keep.to_i
+          excess = packages.count - @storage.keep
           @packages_to_remove = (excess > 0) ? packages.pop(excess) : []
           yaml_save(packages)
         end
